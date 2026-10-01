@@ -1,0 +1,164 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>積み付けシミュレータ</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="favicon-32.png?v=1" sizes="32x32" type="image/png">
+<link rel="icon" href="logo.png?v=1" sizes="256x256" type="image/png">
+<link rel="apple-touch-icon" href="logo.png?v=1">
+
+<div class="app">
+  <header class="bar top">
+    <a class="brand" href="https://loadplanner.vistella.phyowaisoe.com/">
+      <img src="logo.png" alt="VisTella" width="256" height="256">
+      <span id="brand-name">積み付けシミュレータ</span>
+    </a>
+
+    <span class="spacer"></span>
+
+    <label class="tool"><span class="tool-label" id="numbers-label">番号</span><select id="numbers"></select></label>
+    <label class="tool"><span class="tool-label" id="colors-label">色</span><select id="colors"></select></label>
+    <label class="tool"><span class="tool-label" id="units-label">単位</span><select id="units"></select></label>
+    <label class="tool"><span class="tool-label" id="speed-label">速さ</span><select id="speed"></select></label>
+
+    <button class="tool" id="animate-run" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="M8 5v14l11-7z" stroke-linejoin="round"></path>
+      </svg>
+      <span id="animate-run-label">実行時アニメ</span>
+    </button>
+
+    <button class="tool" id="cog" type="button" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <circle cx="12" cy="12" r="7"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+      </svg>
+      <span id="cog-label">重心</span>
+    </button>
+
+    <details class="menu tool" id="file-menu">
+      <summary id="file-label">ファイル</summary>
+      <div class="picker-menu" style="bottom:auto; top:calc(100% + 6px); right:0; left:auto;">
+        <button class="option" id="file-new" type="button">新規</button>
+        <button class="option" id="file-sample" type="button">例のデータ</button>
+        <button class="option" id="file-open" type="button">開く…</button>
+        <button class="option" id="file-save" type="button">保存 (JSON)</button>
+        <button class="option" id="file-export" type="button">計画JSONを書き出す</button>
+      </div>
+    </details>
+
+    <button class="tool icon" id="language" type="button">EN</button>
+    <input id="file-input" type="file" accept="application/json,.json" hidden>
+  </header>
+
+  <main class="workspace" id="workspace">
+    <nav class="rail" aria-label="Create">
+      <span class="rail-title" id="rail-title">作成</span>
+      <button id="rail-boxes" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" stroke-linejoin="round"></path>
+          <path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"></path>
+        </svg>
+        <span class="rail-text"><strong>箱</strong><span class="rail-detail"></span></span>
+      </button>
+      <button id="rail-fields" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="3" y="6" width="18" height="12" rx="2" stroke-dasharray="4 3"></rect>
+        </svg>
+        <span class="rail-text"><strong>置き場</strong><span class="rail-detail"></span></span>
+      </button>
+      <button id="rail-methods" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"></path>
+          <circle cx="9" cy="7" r="2" fill="currentColor"></circle>
+          <circle cx="15" cy="12" r="2" fill="currentColor"></circle>
+          <circle cx="7" cy="17" r="2" fill="currentColor"></circle>
+        </svg>
+        <span class="rail-text"><strong>置き方</strong><span class="rail-detail"></span></span>
+      </button>
+    </nav>
+
+    <section class="editor" id="editor" hidden aria-label="Editor">
+      <div class="editor-head">
+        <button class="icon-button" id="editor-back" type="button" hidden aria-label="Back">←</button>
+        <h2 id="editor-title">箱の作成</h2>
+        <button class="icon-button" id="editor-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="editor-body" id="editor-body"></div>
+    </section>
+
+    <section class="stage" aria-label="3D">
+      <canvas id="scene"></canvas>
+
+      <div class="stage-top">
+        <span class="chip" id="field-chip"></span>
+        <span class="chip warn" id="unplaced-chip" hidden></span>
+        <span class="views">
+          <button type="button" data-view="top">上</button>
+          <button type="button" data-view="front">前</button>
+          <button type="button" data-view="back">後</button>
+          <button type="button" data-view="left">左</button>
+          <button type="button" data-view="right">右</button>
+          <button type="button" data-view="iso">斜め</button>
+          <button type="button" data-view="fit">Fit</button>
+        </span>
+      </div>
+
+      <div class="stage-hint" id="stage-hint"><span></span></div>
+
+      <div class="stage-bottom">
+        <div class="chip" id="unload-caption" hidden></div>
+        <div class="card playback" id="playback" hidden>
+          <button class="icon-button" id="play" type="button">▶</button>
+          <input id="step-slider" type="range" min="0" max="1" step="1" value="0" aria-label="Step">
+          <span class="count" id="step-count">0/0</span>
+          <button class="icon-button" id="replay" type="button">↩</button>
+          <button class="icon-button" id="results-button" type="button" aria-label="Results">≡</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bar bottom">
+    <details class="picker" id="boxes-picker">
+      <summary><span class="label" id="boxes-label">箱</span><span class="value" id="boxes-value"></span></summary>
+      <div class="picker-menu" id="boxes-menu" role="menu"></div>
+    </details>
+    <details class="picker" id="field-picker">
+      <summary><span class="label" id="field-label">置き場</span><span class="value" id="field-value"></span></summary>
+      <div class="picker-menu" id="field-menu" role="menu"></div>
+    </details>
+    <details class="picker" id="method-picker">
+      <summary><span class="label" id="method-label">置き方</span><span class="value" id="method-value"></span></summary>
+      <div class="picker-menu" id="method-menu" role="menu"></div>
+    </details>
+    <div class="view-toggle" role="group" aria-label="Placement view">
+      <button id="view-before" type="button">積付前</button>
+      <button id="view-after" type="button">積付後</button>
+    </div>
+    <button class="run" id="run" type="button">▶<span id="run-label">実行</span></button>
+  </footer>
+</div>
+
+<dialog id="results-dialog">
+  <div class="dialog-head">
+    <h2 id="results-title">結果</h2>
+    <button class="icon-button" id="results-close" type="button" aria-label="Close">✕</button>
+  </div>
+  <div class="dialog-body" id="results-body"></div>
+</dialog>
+
+<dialog id="text-dialog">
+  <div class="dialog-head">
+    <h2 id="text-title">JSON</h2>
+    <button class="icon-button" id="text-close" type="button" aria-label="Close">✕</button>
+  </div>
+  <div class="dialog-body">
+    <textarea id="text-area" readonly spellcheck="false"></textarea>
+    <div class="row" id="text-actions">
+      <button class="tool" id="text-copy" type="button">コピー</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="app.js"></script>
