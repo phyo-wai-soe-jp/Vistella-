@@ -1,47 +1,37 @@
-# 積み付けシミュレータ — web version
+# VisTella 積み付けプランナー(web版)
 
-The Loading tab as a web page: build boxes, fields and placement methods,
-run the planner, and watch the load stack in 3D. It reads and writes the
-same JSON as the iPhone app (VisTella's LoadPlanExchange format), so a
-library saved on the phone opens here and the other way round.
+ブラウザで動く、荷物の積み付けを決めるツールです。
 
-## Running it
+## 1. 何の役に立つか
 
-Any static file server works; ES modules need http, not `file://`:
+トラック・パレット・カゴ車に箱を積む前に、どの箱をどこへ置くかを決められます。
+
+- 届け先と箱(大きさ・重さ・強さ・降ろし順)を入れて「実行」を押すと、1箱ずつ置き場所が決まります。
+- 置く前に4つを必ず確認します。**しっかり支えられるか・重さが片寄らないか・下の箱が耐えられるか・全体が崩れないか**。1つでも満たさない場所は候補から外します。
+- 残った安全な場所の中から、先に降ろす箱の取り出しやすさ、弱い箱の保護、すき間の使い方、同じ届け先のまとまりを点数にして、いちばん良い場所を選びます。
+- 「置き方」を変えると、同じ荷物でも積む順番も置き場所も変わります。たとえば空間優先はよく詰まる代わりに、荷下ろしのとき他の箱に塞がれる箱が増えます。どちらを取るかを数字で比べられます。
+- 積み上がる様子を3Dで1手順ずつ再生でき、荷下ろしも再生できます。どの箱がどの箱に塞がれるかが、そこで分かります。
+- 結果に、置けた箱の数・充填率・下の箱にかかる負担・重心のずれ・塞がれる箱の番号が出ます。
+- インストール不要。iPhoneアプリと同じJSONを読み書きするので、スマホで作った荷物をパソコンで開けます。
+
+## 2. 使っている技術
+
+- **素のJavaScript(ES Modules)** — フレームワークもビルド工程もなし。静的ファイルを置くだけで動きます。
+- **Canvas 2D** — 3D表示は自前。透視投影と奥行き順の描き分けで箱を描いています。
+- **Rust + WebAssembly** — 荷物全体をまとめて決める新エンジン。読み込めない環境では、JavaScript版の計画に自動で切り替わります。
+- **Swift版との一致** — `planner.js` はiOSアプリのSwiftと同じ判定・同じ優先順位で書いてあり、同じ入力から同じ計画が出ます。
+
+| ファイル | 中身 |
+| --- | --- |
+| `index.html` / `styles.css` | 画面と見た目(ライト/ダーク、スマホ〜デスクトップ) |
+| `app.js` | 画面の状態、編集画面、3D描画、再生 |
+| `planner.js` | 4つの検査、積む順番、点数づけ、結果の集計 |
+| `engine.js` / `engine/` | Rust製エンジン(WebAssembly)の読み込みと受け渡し |
+| `exchange.js` | iOSアプリと共通のJSONの読み書き |
+| `samples.js` / `random.js` | 最初から入っている例と、ランダムな荷物の生成 |
+
+動かし方(ES Modulesのため `file://` では動きません):
 
 ```sh
-cd web && python3 -m http.server 8931   # then open http://localhost:8931/
+python3 -m http.server 8931   # http://localhost:8931/
 ```
-
-## Files
-
-| File | What it holds |
-| --- | --- |
-| `index.html` | The page: settings bar, Create rail, 3D stage, Simulate bar |
-| `styles.css` | Tokens and layout, light and dark, phone to desktop |
-| `planner.js` | The planner, ported from the app's Swift: checks, loading orders, scoring, metrics |
-| `exchange.js` | Reading and writing the shared library and plan JSON |
-| `samples.js` | The library the page opens with, matching the app's samples |
-| `random.js` | Makes up a collection from a seed, matching the app's `LoadPlanRandom.swift` |
-| `app.js` | State, editors, the canvas renderer and playback |
-
-## Staying identical to the phone
-
-`planner.js` mirrors `LoadPlanModel.swift`, `LoadPlanChecks.swift` and
-`LoadPlanner.swift` line for line, including tie-breaks. It was checked by
-exporting the app's plan for every sample collection × field × method (18
-plans) and re-running each one here: every box landed at the same position,
-in the same order, with the same results card.
-
-The random collection maker is checked the same way: the same seed produces
-the same boxes on both sides, down to sizes, weights, quantities and
-strengths. It runs in 32-bit arithmetic through `Math.imul` on purpose —
-a plain multiply in JavaScript passes 2^53 and drifts away from Swift.
-
-Re-run that check after changing either planner:
-
-1. Build a Swift harness from `LoadPlanModel/Checks/Planner/Samples/Exchange`
-   plus a `main.swift` that writes `LoadPlanExchange.encodeLibrary(...)` and
-   one `encodePlan(...)` per scenario into a `fixtures/` folder.
-2. Load `fixtures/library.json` here with `parseLibrary`, run `plan(...)` for
-   the same scenarios, and compare placements and metrics.
